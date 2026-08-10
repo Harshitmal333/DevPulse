@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  border-color: theme("colors.base.700");
+}
+
+body {
+  background-color: theme("colors.base.950");
+}
+
+/* Subtle oscilloscope-grid backdrop used behind hero / dashboard header */
+.pulse-grid {
+  background-image: theme("backgroundImage.grid-fade");
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+}
+
+/* Visible keyboard focus ring everywhere, respecting the accent color */
+:focus-visible {
+  outline: 2px solid theme("colors.pulse.DEFAULT");
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background-color: theme("colors.pulse.dim");
+  color: theme("colors.base.950");
+}
+
+/* Thin, quiet scrollbar to match the terminal-adjacent aesthetic */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: theme("colors.base.600");
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
