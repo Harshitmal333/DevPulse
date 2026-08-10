@@ -5,6 +5,8 @@ import { StatCard } from "@/components/StatCard";
 import { CommitChart } from "@/components/CommitChart";
 import { RepoBreakdown } from "@/components/RepoBreakdown";
 import { RepoList } from "@/components/RepoList";
+import { Sparkles } from "@/components/ui/sparkles";
+import { CompareTeammate } from "@/components/CompareTeammate";
 import type { NavId } from "@/components/Sidebar";
 import type { GithubStatsSummary } from "@/lib/github";
 
@@ -25,12 +27,33 @@ const TITLES: Record<NavId, { title: string; subtitle: string }> = {
     title: "Digest",
     subtitle: "A quick read of your recent pulse",
   },
+  compare: {
+    title: "Compare",
+    subtitle: "See a teammate's public stats next to yours",
+  },
+};
+
+interface VisibleStats {
+  commits: boolean;
+  prsOpened: boolean;
+  prsMerged: boolean;
+  issuesClosed: boolean;
+  currentStreak: boolean;
+}
+
+const DEFAULT_VISIBLE_STATS: VisibleStats = {
+  commits: true,
+  prsOpened: true,
+  prsMerged: true,
+  issuesClosed: true,
+  currentStreak: true,
 };
 
 export function DashboardClient({ view }: { view: NavId }) {
   const [summary, setSummary] = useState<GithubStatsSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [visibleStats, setVisibleStats] = useState<VisibleStats>(DEFAULT_VISIBLE_STATS);
 
   async function load(refresh = false) {
     setRefreshing(true);
@@ -49,6 +72,10 @@ export function DashboardClient({ view }: { view: NavId }) {
 
   useEffect(() => {
     load();
+    fetch("/api/preferences")
+      .then((res) => res.json())
+      .then((json) => setVisibleStats(json.visibleStats ?? DEFAULT_VISIBLE_STATS))
+      .catch(() => {});
   }, []);
 
   if (error && !summary) {
@@ -70,13 +97,26 @@ export function DashboardClient({ view }: { view: NavId }) {
 
   if (!summary) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex items-center gap-3 font-mono text-sm text-base-400">
-          <span className="relative flex h-2.5 w-2.5">
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center gap-3 font-mono text-xs text-base-400">
+          <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-pulse opacity-75" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-pulse" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-pulse" />
           </span>
           reading your activity from GitHub…
+        </div>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-24 animate-pulse rounded-lg border border-base-700 bg-base-900"
+            />
+          ))}
+        </div>
+        <div className="h-72 animate-pulse rounded-lg border border-base-700 bg-base-900" />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="h-52 animate-pulse rounded-lg border border-base-700 bg-base-900" />
+          <div className="h-52 animate-pulse rounded-lg border border-base-700 bg-base-900" />
         </div>
       </div>
     );
@@ -114,11 +154,24 @@ export function DashboardClient({ view }: { view: NavId }) {
       {view === "overview" && (
         <>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-            <StatCard label="Commits (90d)" value={summary.totalCommits} accent="pulse" />
-            <StatCard label="PRs opened" value={summary.totalPRsOpened} accent="violet" />
-            <StatCard label="PRs merged" value={summary.totalPRsMerged} accent="amber" />
-            <StatCard label="Issues closed" value={summary.totalIssuesClosed} accent="coral" />
-            <StatCard label="Current streak" value={summary.currentStreak} suffix="days" accent="pulse" />
+            {visibleStats.commits && (
+              <StatCard label="Commits (90d)" value={summary.totalCommits} accent="pulse" />
+            )}
+            {visibleStats.prsOpened && (
+              <StatCard label="PRs opened" value={summary.totalPRsOpened} accent="violet" />
+            )}
+            {visibleStats.prsMerged && (
+              <StatCard label="PRs merged" value={summary.totalPRsMerged} accent="amber" />
+            )}
+            {visibleStats.issuesClosed && (
+              <StatCard label="Issues closed" value={summary.totalIssuesClosed} accent="coral" />
+            )}
+            {visibleStats.currentStreak && (
+              <div className="relative">
+                {summary.currentStreak > 0 && <Sparkles particleDensity={6} />}
+                <StatCard label="Current streak" value={summary.currentStreak} suffix="days" accent="pulse" />
+              </div>
+            )}
           </div>
 
           <CommitChart data={summary.dailyActivity} />
@@ -186,6 +239,8 @@ export function DashboardClient({ view }: { view: NavId }) {
           </p>
         </>
       )}
+
+      {view === "compare" && <CompareTeammate viewerSummary={summary} />}
 
       {view === "digest" && (
         <div className="rounded-lg border border-base-700 bg-base-900 p-6">

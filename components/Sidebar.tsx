@@ -2,13 +2,15 @@
 
 import { signOut } from "next-auth/react";
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-export type NavId = "overview" | "repositories" | "streaks" | "digest";
+export type NavId = "overview" | "repositories" | "streaks" | "digest" | "compare";
 
 interface SidebarProps {
   login: string;
   avatarUrl: string;
-  active: NavId;
+  active: NavId | "settings";
   onNavigate: (id: NavId) => void;
 }
 
@@ -17,9 +19,13 @@ const NAV: { id: NavId; label: string; icon: string }[] = [
   { id: "repositories", label: "Repositories", icon: "▤" },
   { id: "streaks", label: "Streaks", icon: "◈" },
   { id: "digest", label: "Digest", icon: "✉" },
+  { id: "compare", label: "Compare", icon: "⇄" },
 ];
 
 export function Sidebar({ login, avatarUrl, active, onNavigate }: SidebarProps) {
+  const pathname = usePathname();
+  const isSettingsActive = active === "settings" || pathname === "/dashboard/settings";
+
   return (
     <aside className="flex h-screen w-60 flex-col justify-between border-r border-base-700 bg-base-900 px-4 py-6">
       <div>
@@ -53,6 +59,19 @@ export function Sidebar({ login, avatarUrl, active, onNavigate }: SidebarProps) 
               </button>
             );
           })}
+
+          <Link
+            href="/dashboard/settings"
+            aria-current={isSettingsActive ? "page" : undefined}
+            className={`flex items-center gap-3 rounded-md px-3 py-2 text-left font-body text-sm transition-colors ${
+              isSettingsActive
+                ? "bg-base-800 text-base-50"
+                : "text-base-400 hover:bg-base-800/60 hover:text-base-200"
+            }`}
+          >
+            <span className="font-mono text-pulse">⚙</span>
+            Settings
+          </Link>
         </nav>
       </div>
 

@@ -37,6 +37,18 @@ export interface GithubStatsSummary {
   fetchedAt: string;
 }
 
+interface RawRepo {
+  full_name: string;
+  name: string;
+  description: string | null;
+  private: boolean;
+  language?: string | null;
+  stargazers_count?: number;
+  updated_at?: string | null;
+  pushed_at?: string | null;
+  html_url: string;
+}
+
 const LOOKBACK_DAYS = 90;
 
 function iso(date: Date) {
@@ -44,23 +56,26 @@ function iso(date: Date) {
 }
 
 /**
- * Pulls a window of activity for the authenticated user and rolls it up
- * into the shape the dashboard needs. Uses the search API for commits
- * (author-scoped, cheap) rather than paging every repo's commit list.
+ * Rolls up 90 days of activity for a resolved GitHub user into the shape
+ * the dashboard needs. Uses the search API for commits (author-scoped,
+ * cheap) rather than paging every repo's commit list. Shared by the
+ * viewer's own (private+public) stats and the public-only "compare"
+ * lookup — both resolve a login/avatar/repo-list up front and hand them
+ * here.
  */
-export async function fetchGithubStats(
-  accessToken: string
+async function buildStatsSummary(
+  octokit: Octokit,
+  login: string,
+  avatarUrl: string,
+  rawRepos: RawRepo[]
 ): Promise<GithubStatsSummary> {
-  const octokit = new Octokit({ auth: accessToken });
-
-  const { data: user } = await octokit.users.getAuthenticated();
   const since = new Date();
   since.setDate(since.getDate() - LOOKBACK_DAYS);
   const sinceStr = iso(since);
 
   // --- Commits authored by the user, across all repos, in the window ---
   const commitSearch = await octokit.search.commits({
-    q: `author:${user.login} committer-date:>=${sinceStr}`,
+    q: `author:${login} committer-date:>=${sinceStr}`,
     sort: "committer-date",
     order: "desc",
     per_page: 100,
@@ -79,7 +94,7 @@ export async function fetchGithubStats(
 
   // --- Pull requests opened/merged by the user ---
   const prSearch = await octokit.search.issuesAndPullRequests({
-    q: `author:${user.login} type:pr created:>=${sinceStr}`,
+    q: `author:${login} type:pr created:>=${sinceStr}`,
     per_page: 100,
   });
   const prsOpened = prSearch.data.total_count;
@@ -89,7 +104,7 @@ export async function fetchGithubStats(
 
   // --- Issues closed by the user ---
   const issueSearch = await octokit.search.issuesAndPullRequests({
-    q: `author:${user.login} type:issue is:closed closed:>=${sinceStr}`,
+    q: `author:${login} type:issue is:closed closed:>=${sinceStr}`,
     per_page: 100,
   });
   const issuesClosed = issueSearch.data.total_count;
@@ -127,30 +142,21 @@ export async function fetchGithubStats(
     .sort((a, b) => b.commits - a.commits)
     .slice(0, 8);
 
-  // Full repo list the user can see (owned, collaborator, org member).
-  // This is what GitHub's "Top repositories" sidebar draws from — not just
-  // places with recent authored commits.
-  const { data: rawRepos } = await octokit.repos.listForAuthenticatedUser({
-    affiliation: "owner,collaborator,organization_member",
-    sort: "updated",
-    per_page: 100,
-  });
-
   const repositories: UserRepo[] = rawRepos.map((r) => ({
     fullName: r.full_name,
     name: r.name,
     description: r.description,
     private: r.private,
     language: r.language ?? null,
-    stargazersCount: r.stargazers_count,
+    stargazersCount: r.stargazers_count ?? 0,
     updatedAt: r.updated_at ?? r.pushed_at ?? new Date().toISOString(),
     htmlUrl: r.html_url,
     commits90d: repoBuckets.get(r.full_name) ?? 0,
   }));
 
   return {
-    login: user.login,
-    avatarUrl: user.avatar_url,
+    login,
+    avatarUrl,
     totalCommits: commitSearch.data.total_count,
     totalPRsOpened: prsOpened,
     totalPRsMerged: prsMerged,
@@ -162,4 +168,49 @@ export async function fetchGithubStats(
     repositories,
     fetchedAt: new Date().toISOString(),
   };
+}
+
+export async function fetchGithubStats(
+  accessToken: string
+): Promise<GithubStatsSummary> {
+  const octokit = new Octokit({ auth: accessToken });
+
+  const { data: user } = await octokit.users.getAuthenticated();
+
+  // Full repo list the user can see (owned, collaborator, org member).
+  // This is what GitHub's "Top repositories" sidebar draws from — not just
+  // places with recent authored commits.
+  const { data: rawRepos } = await octokit.repos.listForAuthenticatedUser({
+    affiliation: "owner,collaborator,organization_member",
+    sort: "updated",
+    per_page: 100,
+  });
+
+  return buildStatsSummary(octokit, user.login, user.avatar_url, rawRepos);
+}
+
+/**
+ * Public-only variant for the "compare with a teammate" feature — no
+ * access to the viewer's OAuth token for an arbitrary other user, so this
+ * builds its own client (optionally with GITHUB_TOKEN for a higher rate
+ * limit) and only pulls data any visitor to github.com could see:
+ * public repos owned by that user, no private-repo affiliation.
+ */
+export async function fetchPublicGithubStats(
+  username: string
+): Promise<GithubStatsSummary> {
+  const octokit = new Octokit(
+    process.env.GITHUB_TOKEN ? { auth: process.env.GITHUB_TOKEN } : {}
+  );
+
+  const { data: user } = await octokit.users.getByUsername({ username });
+
+  const { data: rawRepos } = await octokit.repos.listForUser({
+    username,
+    type: "owner",
+    sort: "updated",
+    per_page: 100,
+  });
+
+  return buildStatsSummary(octokit, user.login, user.avatar_url, rawRepos);
 }

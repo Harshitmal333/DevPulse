@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { CardSpotlight } from "@/components/ui/card-spotlight";
 
 interface StatCardProps {
   label: string;
@@ -14,9 +15,16 @@ const ACCENTS: Record<NonNullable<StatCardProps["accent"]>, string> = {
   violet: "text-signal-violet",
 };
 
+const ACCENT_HEX: Record<NonNullable<StatCardProps["accent"]>, string> = {
+  pulse: "#7ef29c",
+  amber: "#f2b957",
+  coral: "#f2725c",
+  violet: "#9c8cf2",
+};
+
 export function StatCard({ label, value, accent = "pulse", suffix }: StatCardProps) {
   return (
-    <div className="rounded-lg border border-base-700 bg-base-900 p-5">
+    <CardSpotlight color={ACCENT_HEX[accent]} className="p-5">
       <p className="font-mono text-xs uppercase tracking-wide text-base-400">
         {label}
       </p>
@@ -28,6 +36,6 @@ export function StatCard({ label, value, accent = "pulse", suffix }: StatCardPro
           </span>
         )}
       </p>
-    </div>
+    </CardSpotlight>
   );
 }
