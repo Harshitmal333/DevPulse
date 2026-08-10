@@ -6,7 +6,7 @@ import Stats from "@/models/Stats";
 import User from "@/models/User";
 import { fetchGithubStats } from "@/lib/github";
 
-const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 M
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
