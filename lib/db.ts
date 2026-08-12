@@ -6,14 +6,6 @@ import mongoose from "mongoose";
 // Point Node at Google's DNS so mongodb+srv:// lookups succeed.
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
-const MONGODB_URI = process.env.MONGODB_URI as string;
-
-if (!MONGODB_URI) {
-  throw new Error(
-    "Missing MONGODB_URI. Add it to .env.local — see .env.example."
-  );
-}
-
 /**
  * In serverless environments (Vercel, Lambda) the module scope can be
  * reused across invocations, so we cache the connection on the global
@@ -33,6 +25,13 @@ const cached: MongooseCache = global._mongoose ?? { conn: null, promise: null };
 global._mongoose = cached;
 
 export async function connectDB() {
+  const MONGODB_URI = process.env.MONGODB_URI;
+  if (!MONGODB_URI) {
+    throw new Error(
+      "Missing MONGODB_URI. Add it to .env.local — see .env.example."
+    );
+  }
+
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {

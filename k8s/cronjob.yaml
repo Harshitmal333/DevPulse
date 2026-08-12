@@ -1,0 +1,31 @@
+# Daily sync sweep — same role as vercel.json cron.
+# Calls the in-cluster Service so traffic stays inside the cluster.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: devpulse-sync
+  namespace: devpulse
+spec:
+  schedule: "0 6 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: curl
+              image: curlimages/curl:8.10.1
+              env:
+                - name: CRON_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: devpulse-secrets
+                      key: CRON_SECRET
+              command: ["/bin/sh", "-c"]
+              args:
+                - >-
+                  curl -sS -X POST
+                  -H "x-cron-secret: ${CRON_SECRET}"
+                  http://devpulse.devpulse.svc.cluster.local/api/github/sync

@@ -1,0 +1,28 @@
+# Requires an Ingress controller on the cluster (e.g. AWS Load Balancer Controller on EKS).
+# Update host to your real domain, then point GitHub OAuth callback to:
+#   https://<host>/api/auth/callback/github
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: devpulse
+  namespace: devpulse
+  annotations:
+    # ALB on EKS (uncomment when using AWS Load Balancer Controller):
+    # kubernetes.io/ingress.class: alb
+    # alb.ingress.kubernetes.io/scheme: internet-facing
+    # alb.ingress.kubernetes.io/target-type: ip
+    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    # alb.ingress.kubernetes.io/ssl-redirect: "443"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: devpulse.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: devpulse
+                port:
+                  number: 80

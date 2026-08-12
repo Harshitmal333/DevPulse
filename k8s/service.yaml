@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: devpulse
+  namespace: devpulse
+  labels:
+    app: devpulse
+spec:
+  type: ClusterIP
+  selector:
+    app: devpulse
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
